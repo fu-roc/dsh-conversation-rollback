@@ -54,7 +54,7 @@ gh repo clone fu-roc/dsh-conversation-rollback
 dsh plugin --profile desktop add ./dsh-conversation-rollback
 ```
 
-> 早期版本曾叫 `dsh-rollback`；npm 上那个名字属于另一个插件（文件修改回滚），与本项目无关。本项目现以 `dsh-conversation-rollback` 发布。
+> 早期版本曾叫 `dsh-rollback`；npm 上那个名字属于另一个插件（文件修改回滚），与本项目无关。本项目的包名是 `dsh-conversation-rollback`，装 npm 版请认准这个名字。
 
 ### 确认插件装好了
 
