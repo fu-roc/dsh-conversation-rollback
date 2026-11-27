@@ -1,4 +1,4 @@
-# dsh-rollback 设计文档
+# dsh-conversation-rollback 设计文档
 
 > 目标：给 DeepSeek Harness 加一个「回退对话」插件——在任意一条用户消息上点一下，把该消息及其之后的全部内容从这个会话里抹掉，聊天界面看起来像从没发生过，模型上下文里也确实不存在了。
 >
@@ -61,7 +61,7 @@ DSH 已经内置 Fork（`session.fork`，sidebar 右键 / 快捷键），但 For
 | D31 | 快捷键 | **不做**（按钮唯一入口）；无斜杠命令；无遥测 |
 | D32 | 设置项 | 插件设置页卡片，**一个开关**：「回退后自动回填输入框」，默认开 |
 | D33 | i18n | en + zh-CN 双语，跟随系统语言 |
-| D34 | 交付 | 先本地装到 profile 验证 → 验证通过后包成 npm 包 `dsh-rollback` |
+| D34 | 交付 | 先本地装到 profile 验证 → 验证通过后包成 npm 包 `dsh-conversation-rollback` |
 | D35 | 发布元信息 | MIT 许可证 + 完整 README（安装/使用/限制/已知问题） |
 | D36 | 版本兼容 | 宽松声明（如 `engines.dsh: ">=0.2.0"`），不锁死 `^0.2.2-rc.5` |
 
@@ -245,7 +245,7 @@ log-only 事件：不带 `surfaceOp`、不产生派生历史、不属于任何 S
 ### 3.10 包结构
 
 ```
-dsh-rollback/
+dsh-conversation-rollback/
 ├── package.json          # type:module, main:lib/index.js, dsh.bundle.patch, dsh.client
 ├── cordis.patch.yml      # insert 一个 plugin entry，带防重复挂载守卫
 ├── LICENSE               # MIT

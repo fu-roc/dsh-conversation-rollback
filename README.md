@@ -1,4 +1,4 @@
-# dsh-rollback
+# dsh-conversation-rollback
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![DSH](https://img.shields.io/badge/DeepSeek%20Harness-%3E%3D0.2.0-blue)](https://github.com/deepseek-ai/deepseek-harness)
@@ -42,7 +42,7 @@ DSH 自带「分叉会话」（`session.fork`）会新建一个会话 ID，旧�
 插件是一个标准的 DSH bundle，装进 profile 即可：
 
 ```bash
-dsh plugin --profile desktop add /path/to/dsh-rollback
+dsh plugin --profile desktop add /path/to/dsh-conversation-rollback
 ```
 
 或在 DSH Web GUI 的插件页里从本地目录安装。安装后重启 DSH。
@@ -50,11 +50,11 @@ dsh plugin --profile desktop add /path/to/dsh-rollback
 也可以直接从 GitHub 克隆后安装：
 
 ```bash
-gh repo clone fu-roc/dsh-rollback
-dsh plugin --profile desktop add ./dsh-rollback
+gh repo clone fu-roc/dsh-conversation-rollback
+dsh plugin --profile desktop add ./dsh-conversation-rollback
 ```
 
-> npm 上的 `dsh-rollback` 是另一个同名插件（文件修改回滚），本项目尚未发布到 npm。
+> 早期版本曾叫 `dsh-rollback`；npm 上那个名字属于另一个插件（文件修改回滚），与本项目无关。本项目现以 `dsh-conversation-rollback` 发布。
 
 ### 确认插件装好了
 
@@ -82,7 +82,7 @@ dsh plugin --profile desktop add ./dsh-rollback
 
 ```mermaid
 flowchart TD
-    A["用户点「回退到此处」"] --> B["POST /dsh-rollback/api/preview"]
+    A["用户点「回退到此处」"] --> B["POST /dsh-conversation-rollback/api/preview"]
     B --> C["planRollback：算出被遮蔽区间与恢复项"]
     C --> D{还有正在跑的轮次?}
     D -- 是 --> E["agent.cancel + 有上限地等待 idle"]

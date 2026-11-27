@@ -1,5 +1,5 @@
 {
-  "name": "dsh-rollback",
+  "name": "dsh-conversation-rollback",
   "version": "0.1.0",
   "description": "Roll back the current DeepSeek Harness conversation in place.",
   "keywords": [
@@ -13,11 +13,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fu-roc/dsh-rollback.git"
+    "url": "git+https://github.com/fu-roc/dsh-conversation-rollback.git"
   },
-  "homepage": "https://github.com/fu-roc/dsh-rollback#readme",
+  "homepage": "https://github.com/fu-roc/dsh-conversation-rollback#readme",
   "bugs": {
-    "url": "https://github.com/fu-roc/dsh-rollback/issues"
+    "url": "https://github.com/fu-roc/dsh-conversation-rollback/issues"
   },
   "publishConfig": {
     "access": "public"
