@@ -220,6 +220,7 @@ log-only 事件：不带 `surfaceOp`、不产生派生历史、不属于任何 S
 **执行流程**（`rollback`）：
 
 1. 取 `Session`；若当前有 open turn → 先 `sessionController.cancel({ sessionId })` 并等 turn 收尾（D19）。**更彻底的替代**：`ctx.agents.get(sessionId).cancel(cause)` + `await agent.whenIdle()`，它同时清 inbox 并等到真正静止。
+   - 实现用 `waitForIdle(agent, IDLE_TIMEOUT_MS)`（`IDLE_TIMEOUT_MS = 15_000`）：`whenIdle()` 用 `Promise.race` 加超时，返回 `true`=已静止 / `false`=超时。超时不中止回退，只 `ctx.logger.warn`，避免一个卡死的工具把回退永久挂住。
 2. 丢弃 pending inbox（D22）：`ctx.agents.get(sessionId)?.inbox.clear()`（durable cancel，写 `agent/inbox/spliced`）。若第 1 步用的是 `agent.cancel(...)` 而非 `sessionController.cancel`，注意它**默认已经清空 inbox**，别重复。
 3. 算出遮蔽区间与各种计数（§3.4）。
 4. 取消区间内的后台任务（`ctx.jobs.kill`，D21）。
@@ -227,7 +228,11 @@ log-only 事件：不带 `surfaceOp`、不产生派生历史、不属于任何 S
 6. `session.append([...])`：`rollback/prune` + `user/message{replace}` + 状态类事件 + 可能的 `session/title`。
 7. 返回计数给前端；前端 `inputActions.setDraft(text)` 回填（若开关开启）+ 聚焦（总是执行）。
 
-**并发**（D27 / 多窗口）：所有窗口订阅同一个 session 事件流，`rollback/prune` 一到，各窗口的 conversation 重建、按钮重新计算可用性。host 端对同一 session 的 rollback 加串行锁（同一时刻只允许一个），第二个请求直接返回「已有回退进行中」。
+**并发**（D27 / 多窗口）：所有窗口订阅同一个 session 事件流，遮蔽事件一到，各窗口的 conversation 重建、按钮重新计算可用性。host 端对同一 session 的 rollback 加**单飞闩锁**：`singleFlight(session.id, () => rollback(...))` 用模块级 `ROLLBACKS_IN_FLIGHT: Map<string, symbol>` 记在飞的键，同键第二个请求立即 `reject` 一个 `RollbackBusyError`（`code: "busy"`），不排队、不等待；释放时先比对 identity 再 `delete`，确保迟到的释放不会摘掉新持有者的锁。HTTP 层把错误序列化成 `{ ok: false, error, code }`，client 读到 `code === "busy"` 时提示「另一个窗口正在回退这个会话」。
+
+**边界**：闩锁是进程内的。两个 DSH 进程（两个桌面实例）指向同一份会话日志时彼此不可见，这一点写进 README「已知限制」。
+
+**降级路径**：闩锁只管插件自己的入口；即使有并发，`planRollback` 也会因为 `nodes[index] !== originSeq` 拒绝第二次回退（§3.4 第 1 步），最坏结果是一次失败的 RPC，不会算错区间。
 
 ### 3.8 搜索
 
@@ -292,7 +297,7 @@ peer 依赖参照 `dsh-better-sidebar` 的实物清单，版本用宽松范围�
 | R4 | **首条消息回退不能动 system head** | 无影响（本来就不该动） | 遮蔽范围从第一条 `user/message` 开始；system 保留在 surface 上 |
 | R5 | **清空标题注定要绕过官方 API**：`SessionTitleService.rename()` 对空标题直接抛 `SessionTitleInvalidError("session title must contain visible characters")`，且它写入的 `session/title` 带 `source:{kind:'user'}` 会**pin 住标题**（注释原文：in-flight automatic generation is superseded and later user messages schedule none）。`foldSessionTitle` 是纯「最后一条胜出」，没有 tombstone | D26 若坚持「清空后自动重新命名」，用 rename 必然做不到 | 只能自己 `session.append('session/title', { title:'', messageSeqs:[], source:{kind:'fallback'} })` 绕过校验（见 U2）；做不到就降级为「保留原标题」并写进已知限制 |
 | R6 | **cancel 与 append 的时序**：cancel 后 turn 收尾是异步的，可能在收尾事件上撞 append | 回退失败 | host 端等 `turn/end` 后再 append；带超时；失败回滚为「未发生」并 toast |
-| R7 | **两窗口并发回退** | 区间算错 | 串行锁 + 第二个请求直接拒绝 |
+| R7 | **两窗口并发回退** | 区间算错 | 已实现：`singleFlight` 单飞闩锁，第二个请求 `RollbackBusyError`（`code:'busy'`），client 出「另一个窗口正在回退」。**残留**：仅进程内有效，多进程（两个桌面实例）无互斥，写进 README 已知限制 |
 | R8 | **pending inbox 清空**：~~没有公开 API~~ **已核实有**——`agent.inbox.clear()`（`docs/subsystems/core.md:285-345`，`Agent` 通过 `ctx.agents.get(id)` 拿到） | ~~D22 可能做不到~~ 无障碍 | `Agent.cancel(cause, {keepInbox})` 默认**会**清空排队工作；本插件希望「取消当前轮但稍后自己清 inbox」，可先 `agent.cancel({kind:'…'})`（默认清空）或 `cancel(..., {keepInbox:true})` 后再 `agent.inbox.clear()`。二者皆可，取默认（更简单） |
 | R9 | **DSH 升级导致内部 API 变动** | 插件崩 | 只用文档化的公开 seam（surface / Definition / slot / Remote）；`engines.dsh` 写宽松范围但 README 注明「仅在 0.2.2-rc.5 实测」 |
 
@@ -336,4 +341,6 @@ peer 依赖参照 `dsh-better-sidebar` 的实物清单，版本用宽松范围�
 | D20「todo/plan/goal 一并回退」 | 三类都重放 | `todo`/`plan` **仅当被删区间内确实出现过该事件时才重放** | 无条件重放会往日志里灌入与回退无关的空操作事件 |
 | 依赖声明 | `dsh.client.inject` + `peerDependencies` | 只声明 `@deepseek-ai/cordis`（与官方包一致），client 依赖走 `dsh.client.inject`（`react`、`dsh-client-locale`、`dsh-client-ui-slots`） | 官方 `dsh-client-ui-goal/package.json` 同样只把 cordis 列进 peerDependencies |
 | `locale/` 目录 | 随包发布 en/zh JSON | **删除该目录**，词条内嵌在 `lib/client.js` 并用 `ctx.locale.register` 批量注册 | 那两份 JSON 从未被任何代码引用，属于死资源 |
+| 单次回退互斥 | 未涉及 | `singleFlight(sessionId, …)` + `RollbackBusyError(code: 'busy')`；HTTP 回 `{ ok:false, error, code }`，client 按 `code` 出提示 | 借鉴同类插件「同一目标串行」的做法；闩锁在 RPC 入口处，不排队而是立即拒绝，避免两个窗口各自 cancel/jobs.kill 后只成功一个 |
+| 等待轮次收尾 | `await agent.whenIdle()` 无上限 | `waitForIdle(agent, 15_000)`：超时返回 `false` 并 `ctx.logger.warn`，继续回退 | 卡死的工具会让无上限等待把回退永久挂住；15 秒足够覆盖正常收尾，超时后区间仍按当前 surface 计算，结果正确 |
 
