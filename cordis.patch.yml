@@ -1,0 +1,4 @@
+- insert:
+    - id: dsh-rollback
+      name: 'dsh-rollback'
+      disabled: !!js "[...ctx.loader.entries()].some((e) => e.options.name === 'dsh-rollback' && e.options.id !== 'dsh-rollback' && !e.disabled)"

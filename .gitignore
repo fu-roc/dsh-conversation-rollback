@@ -1,0 +1,10 @@
+# Development scratch: unpacked DSH asar, CDP scripts, headless-browser profiles, screenshots
+.scratch/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
